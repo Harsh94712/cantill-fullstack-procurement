@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pandas==2.2.3
+pydantic==2.10.4
+rapidfuzz==3.11.0
+pypdf==5.1.0
+python-dateutil==2.9.0.post0

@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATA_DIR: /app/data
+      SUBMISSION_DIR: /app/submission
+    volumes:
+      - ./data:/app/data               # task data, app.db (policy versions, chat PRs, runs, audit) survive `down`/`up`
+      - ./submission:/app/submission   # run1.csv / run2.csv / preferred.csv written by the app
+    restart: unless-stopped

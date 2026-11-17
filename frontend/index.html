@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corvo Procurement Assistant</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e7ee;--pri:#1f5eff;--ok:#12805c;--warn:#b54708;--bad:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#0f141b;--card:#18202b;--ink:#e8edf4;--mut:#93a0b2;--line:#2a3544;--pri:#5b8cff;--ok:#3ccf9a;--warn:#f0a050;--bad:#ff7b72}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;gap:16px;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:16px;margin:0}nav{display:flex;gap:4px}nav button{border:0;background:none;padding:8px 14px;border-radius:8px;cursor:pointer;color:var(--mut);font-weight:600}nav button.on{background:var(--pri);color:#fff}
+#pol{margin-left:auto;color:var(--mut);font-size:12px}main{max-width:1280px;margin:0 auto;padding:16px}.tab{display:none}.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}.card h2{font-size:15px;margin:0 0 10px}
+button.b,label.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600;display:inline-block}button.b.s,label.b.s{background:transparent;color:var(--pri);border:1px solid var(--pri)}button.b.ok{background:var(--ok)}button.b.w{background:var(--warn)}button:disabled{opacity:.5}
+input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}textarea{width:100%;min-height:90px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600}.scroll{overflow:auto;max-height:560px}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;background:var(--line)}.CONTRACT_PO,.SPOT_PO,.EMERGENCY_PO{background:#d1f0e3;color:#0b5b41}.RFQ,.RFP,.CAPEX_SOURCING,.NEW_ITEM_SOURCING{background:#dbe6ff;color:#1a3fa8}.NOT_PROCESSED{background:#fde0dd;color:#8a1c12}
+.APPROVED{background:#d1f0e3;color:#0b5b41}.OVERRIDDEN{background:#ffe9cf;color:#8a4a00}.PENDING{background:var(--line)}
+#log{height:420px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:6px}.m{max-width:78%;padding:9px 12px;border-radius:12px;white-space:pre-wrap}.m.u{align-self:flex-end;background:var(--pri);color:#fff}.m.a{align-self:flex-start;background:var(--line)}
+.mut{color:var(--mut)}.req{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:10px}.req .h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.req .why{color:var(--mut);margin:6px 0;font-size:12.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}.kv{background:var(--bg);border-radius:8px;padding:8px}.kv b{display:block;font-size:11px;color:var(--mut)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);max-width:460px;width:92%}
+ul.ch{margin:6px 0;padding-left:18px}ul.ch li{margin:3px 0}
+</style></head><body>
+<header><h1>Corvo Procurement Assistant</h1><nav>
+<button data-t="chat" class="on">Employee Chat</button><button data-t="buyer">Buyer Workspace</button><button data-t="policy">Policy Management</button></nav>
+<span id="pol"></span></header>
+<main>
+<section id="chat" class="tab on"><div class="card"><div class="row" style="justify-content:space-between"><h2>Raise a purchase request</h2><button class="b s" onclick="newChat()">New request</button></div>
+<div id="log"></div><div class="row" style="margin-top:8px"><input id="msg" style="flex:1;min-width:200px" placeholder="e.g. Need 200 nitrile gloves for Chakan by 20/11/2026" onkeydown="if(event.key==='Enter')send()"><button class="b" onclick="send()">Send</button></div></div>
+<div class="card" id="lastdec" style="display:none"></div></section>
+
+<section id="buyer" class="tab">
+<div class="card"><h2>Batch processing</h2><div class="row">
+<label class="b">Upload PR batch CSV<input id="bf" type="file" accept=".csv" hidden onchange="uploadBatch(this)"></label>
+<button class="b s" onclick="runSample()">Run sample batch</button>
+<select id="runsel" onchange="loadRun(this.value)"></select>
+<select id="flt" onchange="renderReqs()"><option value="">All routes</option></select>
+<input id="q" placeholder="Search PR / item / supplier" oninput="renderReqs()">
+<button class="b s" onclick="exportRun()">Export CSV</button>
+<button class="b s" onclick="exportRun('run1')">Save as run1.csv</button><button class="b s" onclick="exportRun('run2')">Save as run2.csv</button></div>
+<div class="mut" id="sum" style="margin-top:8px"></div></div>
+<div class="card"><h2>Requirements <span class="mut" id="cnt"></span></h2><div id="reqs"></div></div>
+<div class="card"><h2>Preferred suppliers export</h2><div class="row"><label>As of <input type="date" id="asof" value="2026-11-01"></label><label>Top <input id="topn" type="number" value="3" min="1" max="5" style="width:60px"></label>
+<button class="b s" onclick="loadPref()">Preview</button><button class="b" onclick="dlPref(false)">Download CSV</button><button class="b s" onclick="dlPref(true)">Save as preferred.csv</button></div>
+<div class="scroll" id="pref" style="margin-top:8px;max-height:300px"></div></div>
+<div class="card"><h2>Contracts</h2><div class="row"><label class="b s">Add contract PDF<input type="file" accept=".pdf" hidden onchange="addPdf(this)"></label><button class="b s" onclick="document.getElementById('cdlg').showModal()">Add manually</button></div><div class="scroll" id="contracts" style="margin-top:8px;max-height:260px"></div></div>
+<div class="card"><h2>Audit trail</h2><div class="scroll" id="audit" style="max-height:300px"></div></div></section>
+
+<section id="policy" class="tab">
+<div class="card"><h2>Task data</h2><div class="row"><label class="b">Import task-kit ZIP<input type="file" accept=".zip" hidden onchange="importKit(this)"></label><span id="kitmsg" class="mut"></span></div></div>
+<div class="card"><h2>Active policy</h2><div id="active"></div></div>
+<div class="card"><h2>Propose an amendment / new version</h2>
+<div class="row"><label class="b">Upload policy PDF / text / JSON<input type="file" accept=".pdf,.txt,.md,.json" hidden onchange="upPolicy(this)"></label><span class="mut">or describe the change:</span></div>
+<textarea id="ptext" placeholder="e.g. Version 5.1, effective 2026-12-01. Emergency PO limit is raised to ₹7,50,000. Value below ₹3 lakh goes to a spot PO."></textarea>
+<div class="row" style="margin-top:6px"><button class="b s" onclick="descPolicy()">Read description</button></div>
+<div id="prev" style="margin-top:12px"></div></div>
+<div class="card"><h2>Version history</h2><div id="hist"></div></div></section>
+</main>
+<dialog id="odlg"><h2>Override decision</h2><div class="row" style="flex-direction:column;align-items:stretch">
+<label>Route<select id="oroute"><option>SPOT_PO</option><option>EMERGENCY_PO</option><option>CONTRACT_PO</option><option>RFQ</option><option>RFP</option><option>CAPEX_SOURCING</option><option>NEW_ITEM_SOURCING</option></select></label>
+<label>Supplier (PO routes)<input id="osup" placeholder="S0xx"></label><label>Your name<input id="oact" placeholder="Buyer name"></label>
+<label>Written reason (required)<textarea id="ocom"></textarea></label><div id="oerr" class="bad"></div>
+<div class="row"><button class="b" onclick="doOverride()">Save override</button><button class="b s" onclick="odlg.close()">Cancel</button></div></div></dialog>
+<dialog id="cdlg"><h2>Add contract</h2><div class="row" style="flex-direction:column;align-items:stretch">
+<input id="c_id" placeholder="Contract no. e.g. RC-2026-040"><input id="c_sup" placeholder="Supplier ID"><label>Start <input type="date" id="c_s"></label><label>End <input type="date" id="c_e"></label>
+<input id="c_cap" type="number" placeholder="Value ceiling (INR)"><input id="c_con" type="number" placeholder="Already consumed (INR, optional)">
+<textarea id="c_lines" placeholder="One per line: ITM-1001, 6200.50"></textarea><div id="cerr" class="bad"></div>
+<div class="row"><button class="b" onclick="addManual()">Save</button><button class="b s" onclick="cdlg.close()">Cancel</button></div></div></dialog>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),inr=v=>v===''||v==null?'':'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2});
+const api=async(u,o)=>{const r=await fetch(u,o);let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j?.detail||r.statusText);return j};
+const post=(u,b)=>api(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+const fd=(f,x={})=>{const d=new FormData();d.append('file',f);Object.entries(x).forEach(([k,v])=>d.append(k,v));return d};
+let sid=sessionStorage.sid||(sessionStorage.sid='s'+Math.random().toString(36).slice(2,10)),cur=null,REQS=[];
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on');if(b.dataset.t=='buyer')refreshBuyer();if(b.dataset.t=='policy')refreshPolicy()});
+async function health(){try{const h=await api('/api/health');$('pol').textContent=`Policy v${h.policy_version} · effective ${h.effective_date} · data ${h.data_loaded?'loaded':'NOT loaded'}`}catch(e){}}
+/* ---- chat ---- */
+function add(t,w){const d=document.createElement('div');d.className='m '+w;d.textContent=t;$('log').appendChild(d);$('log').scrollTop=1e9}
+async function send(){const t=$('msg').value.trim();if(!t)return;$('msg').value='';add(t,'u');try{const r=await post('/api/chat',{session_id:sid,message:t});add(r.reply,'a');if(r.decision)showDec(r.decision)}catch(e){add('Error: '+e.message,'a')}}
+function newChat(){sid='s'+Math.random().toString(36).slice(2,10);sessionStorage.sid=sid;$('log').innerHTML='';add('Hi! Tell me what you need, how many, for which plant and by when.','a')}
+function showDec(d){const c=$('lastdec');c.style.display='block';c.innerHTML=`<h2>Decision for ${esc(d.pr_no)}</h2><div class="grid"><div class="kv"><b>Route</b><span class="tag ${d.route}">${d.route}</span></div><div class="kv"><b>Supplier</b>${esc(d.supplier_id||'—')}</div><div class="kv"><b>Unit price</b>${inr(d.unit_price)||'—'}</div><div class="kv"><b>Requirement value</b>${inr(d.group_value_inr)}</div><div class="kv"><b>Suggested suppliers</b>${esc(d.suggested_supplier_ids||'—')}</div><div class="kv"><b>Policy</b>v${esc(d.policy_version)} · clause ${esc(d.policy_clause)}</div></div><p class="mut">${esc(d.reason)}</p>`}
+/* ---- buyer ---- */
+async function refreshBuyer(){const r=await api('/api/runs');const sel=$('runsel'),old=sel.value;sel.innerHTML='<option value="chat">Chat PRs</option>'+r.rows.map(x=>`<option value="${x.id}">Run ${x.id} · ${esc(x.name)} · v${esc(x.policy_version)}</option>`).join('');sel.value=old||(r.rows[0]?.id??'chat');if(!sel.value)sel.value='chat';await loadRun(sel.value);loadAudit();loadContracts();}
+async function loadRun(id){cur=id;const r=await api('/api/runs/'+id);REQS=r.requirements;const rt=[...new Set(REQS.map(x=>x.route))].sort();$('flt').innerHTML='<option value="">All routes</option>'+rt.map(x=>`<option>${x}</option>`).join('');const s=r.summary;$('sum').textContent=`${s.lines} lines · ${s.requirements} requirements · ${s.pos} POs · `+Object.entries(s.routes).map(([k,v])=>k+' '+v).join(' · ');renderReqs()}
+function renderReqs(){const f=$('flt').value,q=$('q').value.toLowerCase();const L=REQS.filter(x=>(!f||x.route==f)&&(!q||JSON.stringify(x).toLowerCase().includes(q)));$('cnt').textContent=`(${L.length} shown)`;
+$('reqs').innerHTML=L.slice(0,300).map(x=>`<div class="req"><div class="h"><b>${esc(x.group_id)}</b><span class="tag ${x.route}">${x.route}</span><span class="tag ${x.status}">${x.status}${x.doc_no?' · '+esc(x.doc_no):''}</span><span>${esc(x.resolved_item_code)} ${esc(x.item_description)}</span><span class="mut">${x.lines.map(l=>esc(l.pr_no)+'/'+l.pr_line).join(', ')}</span><span style="margin-left:auto"><b>${inr(x.group_value_inr)}</b></span></div>
+<div class="grid" style="margin-top:6px"><div class="kv"><b>Supplier</b>${esc(x.supplier_id)} ${esc(x.supplier_name)}</div><div class="kv"><b>Unit price</b>${inr(x.unit_price)||'—'}</div><div class="kv"><b>PO</b>${esc(x.po_id||'—')}</div><div class="kv"><b>Contract</b>${esc(x.contract_id||'—')}</div><div class="kv"><b>Policy</b>v${esc(x.policy_version)} · ${esc(x.policy_clause||'')}</div><div class="kv"><b>Suggested</b>${x.suggested.map(s=>esc(s.id+' '+s.name)).join('<br>')||'—'}</div></div>
+<div class="why">${esc(x.reason)}</div>${x.override?`<div class="warn">Overridden by ${esc(x.status_by)} → ${esc(x.override.route)} ${esc(x.override.supplier_id)} · reason: ${esc(x.status_comment)}</div>`:''}
+${x.status=='PENDING'?`<button class="b ok" onclick="approve('${esc(x.group_id)}')">Approve</button> <button class="b w" onclick="openOv('${esc(x.group_id)}','${x.route}')">Override</button>`:''}</div>`).join('')||'<span class="mut">Nothing yet. Upload a PR batch, run the sample, or raise a PR in chat.</span>'}
+async function uploadBatch(i){const f=i.files[0];if(!f)return;try{const r=await api('/api/process-batch',{method:'POST',body:fd(f)});await refreshBuyer();$('runsel').value=r.run_id;await loadRun(r.run_id)}catch(e){alert(e.message)}i.value=''}
+async function runSample(){try{const r=await api('/api/process-sample',{method:'POST'});await refreshBuyer();$('runsel').value=r.run_id;await loadRun(r.run_id)}catch(e){alert(e.message)}}
+function exportRun(n){location='/api/runs/'+cur+'/export'+(n?'?save_as='+n:'')}
+async function approve(g){const a=prompt('Your name (for the audit trail)','Buyer');if(a===null)return;try{const r=await post('/api/requirements/approve',{source:cur,group_id:g,actor:a});alert('Created '+r.doc_no);await loadRun(cur);loadAudit()}catch(e){alert(e.message)}}
+let ovg=null;function openOv(g,r){ovg=g;$('oroute').value=r;$('osup').value='';$('ocom').value='';$('oerr').textContent='';odlg.showModal()}
+async function doOverride(){try{await post('/api/requirements/override',{source:cur,group_id:ovg,route:$('oroute').value,supplier_id:$('osup').value,actor:$('oact').value,comment:$('ocom').value});odlg.close();await loadRun(cur);loadAudit()}catch(e){$('oerr').textContent=e.message}}
+async function loadPref(){const r=await api(`/api/preferred?as_of=${$('asof').value}&top=${$('topn').value}`);$('pref').innerHTML='<table><tr><th>Item</th><th>Rank</th><th>Supplier</th><th>Reference price</th><th>Why</th></tr>'+r.rows.slice(0,400).map(x=>`<tr><td>${x.item_code}</td><td>${x.rank}</td><td>${x.supplier_id}</td><td>${inr(x.reference_price)}</td><td class="mut">${esc(x.why)}</td></tr>`).join('')+'</table>'}
+function dlPref(s){location=`/api/preferred/export?as_of=${$('asof').value}&top=${$('topn').value}&save=${s}`}
+async function loadContracts(){try{const r=await api('/api/contracts');$('contracts').innerHTML='<table><tr><th>Contract</th><th>Supplier</th><th>Valid</th><th>Ceiling</th><th>Consumed</th><th>Items</th><th>Source</th></tr>'+r.rows.map(c=>`<tr><td>${c.contract_id}</td><td>${c.supplier_id}</td><td>${c.start_date} → ${c.end_date}</td><td>${inr(c.value_cap)}</td><td>${inr(c.consumed_value)}</td><td>${c.items}</td><td>${c.source}</td></tr>`).join('')+'</table>'}catch(e){$('contracts').textContent=e.message}}
+async function addPdf(i){const f=i.files[0];if(!f)return;try{await api('/api/contracts/pdf',{method:'POST',body:fd(f)});loadContracts();alert('Contract added; it applies to the next batch run.')}catch(e){alert(e.message)}i.value=''}
+async function addManual(){try{const lines=$('c_lines').value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{const [i,r]=s.split(/[ ,\t]+/);return{item_code:i,rate:r}});await post('/api/contracts',{contract_id:$('c_id').value,supplier_id:$('c_sup').value,start_date:$('c_s').value,end_date:$('c_e').value,value_cap:$('c_cap').value,consumed_value:$('c_con').value||0,lines});cdlg.close();loadContracts()}catch(e){$('cerr').textContent=e.message}}
+async function loadAudit(){const r=await api('/api/actions?limit=60');$('audit').innerHTML='<table><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr>'+r.rows.map(a=>`<tr><td>${esc(a.created_at.slice(0,19))}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td class="mut">${esc(JSON.stringify(a.details).slice(0,260))}</td></tr>`).join('')+'</table>'}
+/* ---- policy ---- */
+async function refreshPolicy(){health();const p=await api('/api/policy/active');$('active').innerHTML=`<div class="grid">${[['Version',p.version],['Effective',p.effective_date],['Spot PO below',inr(p.po_limit)],['RFQ below / RFP at or above',inr(p.rfq_limit)],['Emergency PO up to',inr(p.emergency_limit)],['Clubbing window',p.club_days+' days'],['Need-by window','±'+p.needby_days+' days'],['Consolidation',p.consolidation_hours+' h'],['Capex types',p.capex_types.join(', ')]].map(([k,v])=>`<div class="kv"><b>${k}</b>${esc(v)}</div>`).join('')}</div>${p.rules.length?'<p><b>Extra rules</b></p><ul class="ch">'+p.rules.map(r=>`<li>${esc(r.description||r.id)} → ${r.route}</li>`).join('')+'</ul>':''}`;
+const h=await api('/api/policy/history');$('hist').innerHTML='<table><tr><th>Version</th><th>Effective</th><th>Source</th><th>Rules</th><th></th></tr>'+h.rows.map(x=>`<tr><td>${x.version} ${x.active?'<span class="tag APPROVED">ACTIVE</span>':''}</td><td>${x.effective_date}</td><td>${esc(x.source_filename||'')}</td><td>${x.rules}</td><td>${x.active?'':`<button class="b s" onclick="react('${x.version}')">Re-activate</button>`}</td></tr>`).join('')+'</table>'}
+async function react(v){if(confirm('Re-activate version '+v+'?')){await post('/api/policy/activate/'+v,{});refreshPolicy();health()}}
+async function importKit(i){const f=i.files[0];if(!f)return;$('kitmsg').textContent='Importing…';try{const r=await api('/api/import-kit',{method:'POST',body:fd(f)});$('kitmsg').textContent=r.message}catch(e){$('kitmsg').textContent=e.message}i.value='';health()}
+async function upPolicy(i){const f=i.files[0];if(!f)return;try{showPrev(await api('/api/policy',{method:'POST',body:fd(f)}))}catch(e){alert(e.message)}i.value=''}
+async function descPolicy(){try{showPrev(await post('/api/policy/describe',{text:$('ptext').value}))}catch(e){alert(e.message)}}
+let PV=null;function showPrev(r){PV=r.proposed.values;const c=r.proposed.changes,w=r.proposed.warnings;$('prev').innerHTML=`<b>What would change</b>${c.length?'<ul class="ch">'+c.map(x=>`<li>${esc(x.text)}</li>`).join('')+'</ul>':'<p class="mut">Nothing detected.</p>'}${w.length?'<ul class="ch warn">'+w.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':''}
+<div class="row"><label>Version <input id="pv" value="${esc(PV.version)}" style="width:90px"></label><label>Effective date <input type="date" id="pe" value="${esc(PV.effective_date)}"></label><label>Your name <input id="pa" placeholder="Approver"></label><button class="b ok" onclick="approvePol()">Approve &amp; activate</button></div><details style="margin-top:8px"><summary class="mut">Document text read</summary><pre style="white-space:pre-wrap;max-height:240px;overflow:auto">${esc(r.preview)}</pre></details>`}
+async function approvePol(){try{const v={...PV,version:$('pv').value.trim(),effective_date:$('pe').value,actor:$('pa').value};const r=await post('/api/policy/approve',v);$('prev').innerHTML=`<p class="ok"><b>Policy v${esc(r.policy_version)} is now active</b> (effective ${esc(r.effective_date)}). New batches and chat requests use it immediately.</p>`;refreshPolicy();health()}catch(e){alert(e.message)}}
+newChat();health();refreshPolicy();
+</script></body></html>
